@@ -1,5 +1,6 @@
-import { fastify } from "fastify"
 import { fastifyCors } from "@fastify/cors"
+import { fastify } from "fastify"
+
 
 const server = fastify()
 
