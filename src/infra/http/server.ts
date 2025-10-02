@@ -1,9 +1,34 @@
+import { env } from '@/env'
 import { fastifyCors } from '@fastify/cors'
 import { fastify } from 'fastify'
+import { serializerCompiler, validatorCompiler, hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod'
+import { uploadImageRoute } from './routes/upload-image'
 
 const server = fastify()
 
+//Validação - Manipulando e validando dados de entrada (validatorCompiler)
+//Serialização - Estou validando e manipulando dados de saida (serializerCompiler)
+server.setValidatorCompiler(validatorCompiler)
+server.setSerializerCompiler(serializerCompiler)
+
+// todos os erros que eu nao lidar na rota, eles vao cair aqui nessa rota.
+server.setErrorHandler((error, request, reply) => {
+  if(hasZodFastifySchemaValidationErrors(error)){
+    return reply.status(400).send({
+      message: 'Validation error.',
+      issues: error.validation,
+    })
+  }
+
+  // envia o erro p/ alguma ferramenta de observabilidade (Sentry,Datadog/Grafana/Otel)
+
+  console.log(error)
+  return reply.status(500).send({message:'Internal server error.'})
+})
+
 server.register(fastifyCors, { origin: '*' })
+
+server.register(uploadImageRoute)
 
 server.listen({ port: 3333, host: '0.0.0.0' }).then(() => {
   console.log('HTTP Server Running!')
