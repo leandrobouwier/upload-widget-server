@@ -1,7 +1,15 @@
-import { env } from '@/env'
 import { fastifyCors } from '@fastify/cors'
+import fastifyMultipart from '@fastify/multipart'
+import fastifySwagger from '@fastify/swagger'
+import fastifySwaggerUi from '@fastify/swagger-ui'
 import { fastify } from 'fastify'
-import { serializerCompiler, validatorCompiler, hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod'
+import {
+  hasZodFastifySchemaValidationErrors,
+  jsonSchemaTransform,
+  serializerCompiler,
+  validatorCompiler,
+} from 'fastify-type-provider-zod'
+import { env } from '@/env'
 import { uploadImageRoute } from './routes/upload-image'
 
 const server = fastify()
@@ -13,7 +21,7 @@ server.setSerializerCompiler(serializerCompiler)
 
 // todos os erros que eu nao lidar na rota, eles vao cair aqui nessa rota.
 server.setErrorHandler((error, request, reply) => {
-  if(hasZodFastifySchemaValidationErrors(error)){
+  if (hasZodFastifySchemaValidationErrors(error)) {
     return reply.status(400).send({
       message: 'Validation error.',
       issues: error.validation,
@@ -21,12 +29,27 @@ server.setErrorHandler((error, request, reply) => {
   }
 
   // envia o erro p/ alguma ferramenta de observabilidade (Sentry,Datadog/Grafana/Otel)
-
   console.log(error)
-  return reply.status(500).send({message:'Internal server error.'})
+  return reply.status(500).send({ message: 'Internal server error.' })
 })
 
 server.register(fastifyCors, { origin: '*' })
+
+server.register(fastifyMultipart)
+
+server.register(fastifySwagger, {
+  openapi: {
+    info: {
+      title: 'Upload Server',
+      version: '1.0.0',
+    },
+  },
+  transform: jsonSchemaTransform,
+})
+
+server.register(fastifySwaggerUi, {
+  routePrefix: '/docs',
+})
 
 server.register(uploadImageRoute)
 
