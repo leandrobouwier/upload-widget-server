@@ -9,6 +9,7 @@ import {
   validatorCompiler,
 } from 'fastify-type-provider-zod'
 import { env } from '@/env'
+import { getUploadsRoute } from '@/infra/http/routes/get-uploads'
 import { uploadImageRoute } from './routes/upload-image'
 import { transformSwaggerSchema } from './transform-swagger-schema'
 
@@ -44,7 +45,7 @@ server.register(fastifySwagger, {
       version: '1.0.0',
     },
   },
-  transform: transformSwaggerSchema
+  transform: transformSwaggerSchema,
 })
 
 server.register(fastifySwaggerUi, {
@@ -52,6 +53,7 @@ server.register(fastifySwaggerUi, {
 })
 
 server.register(uploadImageRoute)
+server.register(getUploadsRoute)
 
 server.listen({ port: 3333, host: '0.0.0.0' }).then(() => {
   console.log('HTTP Server Running!')
