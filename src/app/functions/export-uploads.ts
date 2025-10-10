@@ -1,8 +1,13 @@
-import { asc, count, desc, ilike } from 'drizzle-orm'
+import { ilike } from 'drizzle-orm'
 import { z } from 'zod'
+import { stringify } from 'csv-stringify'
 import { db, pg } from '@/infra/db'
 import { schema } from '@/infra/db/schemas'
 import { type Either, makeRight } from '@/shared/either'
+import { pipeline } from 'node:stream/promises'
+import { uploadFileToStorage } from '@/infra/storage/upload-file-to-storage'
+import { PassThrough } from 'node:stream'
+
 
 const exportUploadsInput = z.object({
   searchQuery: z.string().optional(),
@@ -35,9 +40,38 @@ export async function exportUploads(
 
   const cursor = pg.unsafe(sql, params as string[]).cursor(1)
 
-  for await (const rows of cursor) {
-    console.log(rows)
-  }
+  const csv = stringify({
+    delimiter: '',
+    header: true,
+    columns: [
+      { key: 'id', header:'ID' },
+      { key: 'name', header:'Name' },
+      { key: 'remote_url', header:'URL' },
+      { key: 'created_at', header:'Uploaded at' },
+    ],
+  })
 
-  return makeRight({ reportUrl: '' })
+  const uploadToStorageStream = new PassThrough()
+
+  const convertToCSVPipeline =  pipeline(
+    cursor,
+    csv,
+    uploadToStorageStream
+  )
+
+  const uploadToStorage = uploadFileToStorage({
+    contentType: 'text/csv',
+    folder: 'downloads',
+    fileName: `${new Date().toISOString()}-uploads.csv`,
+    contentStream: uploadToStorageStream,
+  })
+
+  const [{ url }] = await Promise.all([
+    uploadToStorage,
+    convertToCSVPipeline,
+  ])
+  
+  console.log(url)
+
+  return makeRight({ reportUrl: url })
 }
